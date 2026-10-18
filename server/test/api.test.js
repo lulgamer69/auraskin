@@ -44,9 +44,13 @@ test('CORS allows local Vite origin and preflight without reflecting unknown ori
   const baseUrl = await withServer(t);
   const allowed = await fetch(`${baseUrl}/api/health`, { headers: { Origin: 'http://localhost:5173' } });
   assert.equal(allowed.headers.get('access-control-allow-origin'), 'http://localhost:5173');
+  const deployedFrontend = await fetch(`${baseUrl}/api/health`, {
+    headers: { Origin: 'https://auraskin-steel.vercel.app' },
+  });
+  assert.equal(deployedFrontend.headers.get('access-control-allow-origin'), 'https://auraskin-steel.vercel.app');
   const preflight = await fetch(`${baseUrl}/api/policies/shipping`, {
     method: 'OPTIONS',
-    headers: { Origin: 'http://localhost:5173', 'Access-Control-Request-Method': 'POST', 'Access-Control-Request-Headers': 'content-type' },
+    headers: { Origin: 'https://auraskin-steel.vercel.app', 'Access-Control-Request-Method': 'POST', 'Access-Control-Request-Headers': 'content-type' },
   });
   assert.equal(preflight.status, 204);
   assert.match(preflight.headers.get('access-control-allow-methods'), /POST/);

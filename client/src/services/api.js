@@ -1,16 +1,43 @@
 const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL;
-const API_BASE_URL = (configuredApiBaseUrl || (import.meta.env.DEV ? 'http://localhost:5000' : '')).replace(/\/+$/, '');
+const productionApiBaseUrl = 'https://auraskin-api-d6wb.onrender.com';
+const defaultApiBaseUrl = import.meta.env.DEV ? 'http://localhost:5000' : productionApiBaseUrl;
+const rawApiBaseUrl = (configuredApiBaseUrl?.trim() || defaultApiBaseUrl).trim();
+
+function normalizeApiBaseUrl(value) {
+  try {
+    const url = new URL(value);
+    const supportedProtocol = url.protocol === 'http:' || url.protocol === 'https:';
+    const hasNoCredentials = !url.username && !url.password;
+    const hasNoExtraPath = url.pathname === '/' || url.pathname === '';
+    const hasNoQueryOrHash = !url.search && !url.hash;
+
+    if (!supportedProtocol || !url.hostname || !hasNoCredentials || !hasNoExtraPath || !hasNoQueryOrHash) {
+      return '';
+    }
+
+    return url.origin;
+  } catch {
+    return '';
+  }
+}
+
+const API_BASE_URL = normalizeApiBaseUrl(rawApiBaseUrl);
+const apiBaseUrlError = API_BASE_URL
+  ? ''
+  : 'The support API URL is invalid. Set VITE_API_BASE_URL to https://auraskin-api-d6wb.onrender.com without extra text or a path.';
 
 async function request(path, options = {}) {
   if (!API_BASE_URL) {
-    throw new Error('The support API URL is not configured. Set VITE_API_BASE_URL in the frontend deployment settings.');
+    throw new Error(apiBaseUrlError);
   }
+
+  const requestPath = `/${path.replace(/^\/+/, '')}`;
 
   let response;
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), 30000);
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
+    response = await fetch(`${API_BASE_URL}${requestPath}`, {
       ...options,
       signal: controller.signal,
       headers: {

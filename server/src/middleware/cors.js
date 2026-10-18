@@ -1,9 +1,14 @@
-const developmentOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173'];
+const defaultOrigins = [
+  'https://auraskin-steel.vercel.app',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+];
 
 export function createCorsMiddleware(origins) {
-  const configuredOrigins = origins ?? (process.env.CLIENT_ORIGIN
+  const environmentOrigins = process.env.CLIENT_ORIGIN
     ? process.env.CLIENT_ORIGIN.split(',').map((origin) => origin.trim()).filter(Boolean)
-    : developmentOrigins);
+    : [];
+  const configuredOrigins = origins ?? [...defaultOrigins, ...environmentOrigins];
   const allowedOrigins = new Set(configuredOrigins);
 
   return function corsMiddleware(req, res, next) {

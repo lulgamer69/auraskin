@@ -21,4 +21,4 @@ services:
       - key: GROQ_TTS_VOICE
         value: hannah
       - key: CLIENT_ORIGIN
-        value: http://localhost:5173
+        value: https://auraskin-steel.vercel.app,http://localhost:5173,http://127.0.0.1:5173
