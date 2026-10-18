@@ -45,6 +45,7 @@ export default function useCallSession() {
   const activeRef = useRef(false);
   const modeRef = useRef('voice');
   const processingRef = useRef(false);
+  const speakingRef = useRef(false);
   const turnPromiseRef = useRef(null);
   const transcriptRef = useRef([]);
   const restartTimerRef = useRef(null);
@@ -83,6 +84,7 @@ export default function useCallSession() {
       recognitionRef.current = null;
       recognitionRunningRef.current = false;
       stopSpeaking();
+      speakingRef.current = false;
       if (status === 'Speaking') processingRef.current = false;
       modeRef.current = 'chat';
       setMode('chat');
@@ -108,12 +110,13 @@ export default function useCallSession() {
     sessionIdRef.current = createSessionId();
     activeRef.current = true;
     processingRef.current = false;
+    speakingRef.current = false;
     setCallActive(true);
     setStatus(nextMode === 'voice' ? 'Listening' : 'Idle');
   }
 
   function listenAgain() {
-    if (!activeRef.current || modeRef.current !== 'voice' || !recognitionRef.current || reviewPendingRef.current) return;
+    if (!activeRef.current || modeRef.current !== 'voice' || !recognitionRef.current || reviewPendingRef.current || speakingRef.current) return;
     processingRef.current = false;
     setStatus('Listening');
     queueListeningRestart(recognitionRef.current);
@@ -186,7 +189,7 @@ export default function useCallSession() {
     };
     recognition.onend = () => {
       recognitionRunningRef.current = false;
-      if (activeRef.current && !processingRef.current && !reviewPendingRef.current && modeRef.current === 'voice') listenAgain();
+      if (activeRef.current && !processingRef.current && !reviewPendingRef.current && !speakingRef.current && modeRef.current === 'voice') listenAgain();
     };
     return recognition;
   }
@@ -217,7 +220,12 @@ export default function useCallSession() {
       if (!activeRef.current) return;
 
       if (modeRef.current === 'voice') {
+        speakingRef.current = true;
+        let speechFinished = false;
         const finishSpeech = () => {
+          if (speechFinished) return;
+          speechFinished = true;
+          speakingRef.current = false;
           if (result.callEnded) void endCall();
           else listenAgain();
         };
@@ -314,6 +322,7 @@ export default function useCallSession() {
     if (!activeRef.current || ending) return;
     activeRef.current = false;
     processingRef.current = true;
+    speakingRef.current = false;
     setCallActive(false);
     setEnding(true);
     setSummaryLoading(transcriptRef.current.length > 0);
