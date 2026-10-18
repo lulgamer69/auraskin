@@ -13,6 +13,19 @@ const SESSION_TTL_MS = 60 * 60 * 1000;
 const MAX_SESSIONS = 500;
 const MAX_TTS_INPUT_LENGTH = 180;
 
+function cleanSpeechText(text) {
+  return text
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/(?<=\d)\s*\*\s*(?=\d)/g, ' times ')
+    .replace(/```|[*_~`]/g, '')
+    .replace(/[\[\]{}]/g, '')
+    .replace(/^\s{0,3}#{1,6}\s+/gm, '')
+    .replace(/^\s*(?:[-•]|\d+[.)])\s+/gm, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function splitSpeechText(text) {
   const segments = [];
   let remaining = text.trim();
@@ -42,7 +55,7 @@ const Type = { OBJECT: 'object', STRING: 'string', NUMBER: 'number', BOOLEAN: 'b
 
 const SYSTEM_INSTRUCTION = `You are Aria, Aura Skincare's friendly, concise Indian customer-support specialist.
 Only help with Aura Skincare products, orders, and the policies below. Politely decline unrelated requests.
-Speak like a warm, capable person, not a scripted call centre. Answer directly in one or two short sentences, usually under 35 words. Avoid filler, repeated greetings, and announcing that you are an AI.
+Speak like a warm, capable person, not a scripted call centre. Answer directly in one or two short sentences, usually under 35 words. Avoid filler, repeated greetings, and announcing that you are an AI. Use plain conversational text; do not format answers with asterisks, square brackets, markdown, or bullet symbols, and never say the names of formatting marks aloud.
 For order lookups, recognize shorthand such as “101”, “order 101”, and “my order ID is 101” as ORD-101. Do the same for 102 and 103. Use the order tool without asking the customer to repeat the ORD- prefix. If the order number is missing or genuinely unclear, ask one brief question.
 Voice messages may include lower-ranked speech-recognition alternatives. Treat them as uncertain hypotheses, not extra words the customer definitely said. If an alternative changes the meaning or the request is unclear, ask one short clarification instead of guessing.
 Feedback about Aria or the support experience is in scope. Acknowledge praise or frustration directly; if the customer says the help was poor, apologize and offer to correct the answer or continue by chat. Do not deflect to a generic skincare-support greeting.
@@ -326,7 +339,7 @@ export function createConversationService({
   const invokeModel = generateContent ?? ((request) => generateGroqContent(request, apiKey, model, fetchImpl));
   const makeSpeech = speechGenerator ?? (async (text) => {
     if (!apiKey || generateContent) return null;
-    const chunks = splitSpeechText(text);
+    const chunks = splitSpeechText(cleanSpeechText(text));
     return Promise.all(chunks.map(async (input) => {
       const response = await fetchImpl(`${GROQ_API_BASE_URL}/audio/speech`, {
         method: 'POST',
