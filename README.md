@@ -38,7 +38,7 @@ npm install
 npm run dev
 ```
 
-Open the Vite URL (usually `http://localhost:5173`) in Chrome or Edge and allow microphone access after selecting **Start call**. Locally, the frontend connects to `http://localhost:5000` by default. `client/.env.example` is only needed if you want to override the backend URL with `VITE_API_BASE_URL`.
+Open the Vite URL (usually `http://localhost:5173`) in Chrome or Edge and allow microphone access after selecting **Start call**. Local development connects to `http://localhost:5000` by default. To use the deployed API locally, copy `client/.env.example` to `client/.env.local`; local Vite origins are allowed by the deployed backend. Production builds use `https://auraskin-api-d6wb.onrender.com` by default. You can override it with `VITE_API_BASE_URL` if the API URL changes.
 
 ## Checks
 
@@ -84,13 +84,26 @@ Voice recognition support depends on the browser and its speech service; test in
 
 ## Assessment reflection
 
-Add your personal answers before submission:
+### 1. Why did you choose this architecture and technology stack?
 
-1. Why did you choose this architecture and technology stack?
-2. What was the most difficult part, and how did you solve it?
-3. With one more week, what would you improve first and why?
-4. What would need to change to handle 1,000 customer conversations per day?
+I chose React with Vite for a quick, responsive browser interface and Node.js with Express for a small API that keeps the Groq key off the client. The backend exposes order and policy operations as controlled tools, so policy decisions come from application logic instead of relying on the model to calculate or invent outcomes. Browser speech recognition keeps voice input simple to try, Groq generates the assistant's reply and spoken audio, and SQLite stores post-call feedback.
+
+### 2. What was the most difficult part, and how did you solve it?
+
+The hardest part was coordinating voice recognition, the assistant response, audio playback, and the call state without restarting the microphone while Aria was speaking. I kept the conversation flow in a dedicated hook, made voice and chat share the same turn handling, added safeguards around the listening and speaking states, and split long speech requests to respect the speech provider's input limit.
+
+### 3. With one more week, what would you improve first and why?
+
+I would improve speech recognition reliability first. I would test common order and policy questions across browsers, accents, and background-noise levels, then use those results to improve transcription while keeping chat available whenever voice input is unclear.
+
+### 4. What would need to change to handle 1,000 customer conversations per day?
+
+I would move conversation state and order data from process memory to a managed database, make the API stateless so it can scale across instances, and add request limits and monitoring for provider latency, failures, and usage. I would also queue or otherwise control speech-generation requests, protect customer data with a defined retention policy, and add load tests before increasing traffic.
+
+## Approach note for the submission email
+
+I built a browser-based Aura Skincare support agent with React and Express, using Groq for conversation and spoken replies. The backend handles order and policy checks through controlled tools, while the app supports voice and chat, shows a transcript and structured call recap, and stores post-call feedback in SQLite. The frontend and API are deployed publicly so the evaluator can try the experience in a browser.
 
 ## Submission checklist
 
-The assessment also asks for a public application URL, a GitHub repository, a 3–5 minute demo video, a 2–3 sentence approach note, and an accessible LinkedIn profile link. Submit those items to the recipients listed in the assessment PDF.
+The assessment also asks for a public application URL, a GitHub repository, a 3–5 minute demo video, a 2–3 sentence approach note, and an accessible LinkedIn profile link. Copy the approach note above into the submission email along with those links, and submit to the recipients listed in the assessment PDF.
