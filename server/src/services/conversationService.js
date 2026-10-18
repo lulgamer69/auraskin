@@ -11,6 +11,31 @@ const MAX_HISTORY_TURNS = 5;
 const MAX_TRANSCRIPT_MESSAGES = 50;
 const SESSION_TTL_MS = 60 * 60 * 1000;
 const MAX_SESSIONS = 500;
+const MAX_TTS_INPUT_LENGTH = 180;
+
+function splitSpeechText(text) {
+  const segments = [];
+  let remaining = text.trim();
+
+  while (remaining.length > MAX_TTS_INPUT_LENGTH) {
+    let splitAt = -1;
+    for (const punctuation of ['.', '!', '?', ';']) {
+      const position = remaining.lastIndexOf(punctuation, MAX_TTS_INPUT_LENGTH - 1);
+      if (position >= Math.floor(MAX_TTS_INPUT_LENGTH * 0.55)) {
+        splitAt = Math.max(splitAt, position + 1);
+      }
+    }
+
+    if (splitAt < 0) splitAt = remaining.lastIndexOf(' ', MAX_TTS_INPUT_LENGTH);
+    if (splitAt <= 0) splitAt = MAX_TTS_INPUT_LENGTH;
+
+    segments.push(remaining.slice(0, splitAt).trim());
+    remaining = remaining.slice(splitAt).trim();
+  }
+
+  if (remaining) segments.push(remaining);
+  return segments;
+}
 
 // Keep the schemas in ordinary JSON Schema so the backend has no provider SDK dependency.
 const Type = { OBJECT: 'object', STRING: 'string', NUMBER: 'number', BOOLEAN: 'boolean', ARRAY: 'array' };
@@ -301,17 +326,20 @@ export function createConversationService({
   const invokeModel = generateContent ?? ((request) => generateGroqContent(request, apiKey, model, fetchImpl));
   const makeSpeech = speechGenerator ?? (async (text) => {
     if (!apiKey || generateContent) return null;
-    const response = await fetchImpl(`${GROQ_API_BASE_URL}/audio/speech`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: TTS_MODEL, voice: TTS_VOICE, input: text, response_format: 'wav', speed: 1.08 }),
-    });
-    if (!response.ok) {
-      const error = new Error('Groq speech generation failed.');
-      error.status = response.status;
-      throw error;
-    }
-    return Buffer.from(await response.arrayBuffer()).toString('base64');
+    const chunks = splitSpeechText(text);
+    return Promise.all(chunks.map(async (input) => {
+      const response = await fetchImpl(`${GROQ_API_BASE_URL}/audio/speech`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: TTS_MODEL, voice: TTS_VOICE, input, response_format: 'wav', speed: 1.08 }),
+      });
+      if (!response.ok) {
+        const error = new Error('Groq speech generation failed.');
+        error.status = response.status;
+        throw error;
+      }
+      return Buffer.from(await response.arrayBuffer()).toString('base64');
+    }));
   });
   const sessions = new Map();
 
@@ -463,7 +491,13 @@ export function createConversationService({
       throw new HttpError(503, 'GROQ_NOT_CONFIGURED', 'Groq is not configured. Add GROQ_API_KEY to server/.env and restart the server.');
     }
     try {
-      return { audioData: await makeSpeech(latestAgentMessage.text) };
+      const generatedSpeech = await makeSpeech(latestAgentMessage.text);
+      if (Array.isArray(generatedSpeech)) {
+        return generatedSpeech.length === 1
+          ? { audioData: generatedSpeech[0] }
+          : { audioSegments: generatedSpeech };
+      }
+      return { audioData: generatedSpeech };
     } catch {
       console.error('Groq speech generation failed; the browser voice will be used instead.');
       return { audioData: null };

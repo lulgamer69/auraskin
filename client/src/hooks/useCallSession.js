@@ -224,7 +224,7 @@ export default function useCallSession() {
         let audioData = null;
         try {
           const speech = await getConversationSpeech(sessionIdRef.current);
-          audioData = speech?.audioData;
+          audioData = speech?.audioSegments?.length ? speech.audioSegments : speech?.audioData;
         } catch {
           // Keep the reply useful even when server-side voice generation is unavailable.
         }
